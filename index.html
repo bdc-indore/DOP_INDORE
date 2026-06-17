@@ -96,9 +96,6 @@
         let globalHeaders = [];
         let loadedSheetRows = [];
         let currentlyFilteredRows = [];
-
-        // ✅ FIX: Title row indices track karne ke liye global Set
-        let titleRowIndices = new Set();
         
         const idxDivision = 0;  
         const idxSubDiv = 1;    
@@ -175,42 +172,18 @@
                 globalHeaders = parsedData[0];
                 let rawRows = parsedData.slice(1);
 
-                // ✅ FIX: Har load par titleRowIndices reset karo
-                titleRowIndices = new Set();
-
                 let currentRunningDivision = "";
-                loadedSheetRows = rawRows.map((row, rowIndex) => {
-                    let isTitleRow = false;
-                    let targetText = "";
-
-                    for (let i = 0; i < row.length; i++) {
-                        let cText = row[i] ? row[i].trim() : "";
-                        if (cText.toUpperCase().includes("BO WISE") || 
-                            cText.toUpperCase().includes("SO WISE") || 
-                            cText.toUpperCase().includes("DETAILED REPORT")) {
-                            isTitleRow = true;
-                            targetText = cText;
-                            break;
-                        }
+                loadedSheetRows = rawRows.map(row => {
+                    let divVal = row[idxDivision] ? row[idxDivision].trim() : "";
+                    
+                    let matchedDiv = indoreRegionDivisions.find(d => divVal.toUpperCase().startsWith(d));
+                    if (matchedDiv) {
+                        currentRunningDivision = matchedDiv;
                     }
-
-                    let clonedRow = [];
-                    if (isTitleRow) {
-                        clonedRow = new Array(globalHeaders.length).fill("");
-                        clonedRow[0] = targetText;
-                        // ✅ FIX: Flag array property ke bajaye index Set me store karo
-                        titleRowIndices.add(rowIndex);
-                    } else {
-                        let divVal = row[idxDivision] ? row[idxDivision].trim() : "";
-                        let matchedDiv = indoreRegionDivisions.find(d => divVal.toUpperCase().startsWith(d));
-                        if (matchedDiv) {
-                            currentRunningDivision = matchedDiv;
-                        }
-                        
-                        clonedRow = [...row];
-                        if ((!divVal || divVal === "") && currentRunningDivision !== "" && !isStructuralRow(row[idxDivision], row[idxSubDiv])) {
-                            clonedRow[idxDivision] = currentRunningDivision;
-                        }
+                    
+                    let clonedRow = [...row];
+                    if ((!divVal || divVal === "") && currentRunningDivision !== "" && !isStructuralRow(row[idxDivision], row[idxSubDiv])) {
+                        clonedRow[idxDivision] = currentRunningDivision;
                     }
                     return clonedRow;
                 });
@@ -224,10 +197,6 @@
                 }
 
                 currentlyFilteredRows = loadedSheetRows;
-
-                // ✅ FIX: Initial load par bhi duplicate titles remove karo
-                currentlyFilteredRows = removeDuplicateTitleRows(currentlyFilteredRows);
-
                 renderTable();
                 downloadBtn.disabled = false; 
 
@@ -237,30 +206,6 @@
                 statusMsg.style.color = '#d32f2f';
                 statusMsg.innerText = "अभी डाटा अपलोड किया जाना बाकी है";
             }
-        }
-
-        // ✅ FIX: Duplicate consecutive title rows hatane ka function
-        function removeDuplicateTitleRows(rows) {
-            let lastSeenTitle = null;
-            return rows.filter((row, idx) => {
-                let isTitle = titleRowIndices.has(idx) || 
-                              (row[0] && (
-                                  row[0].toUpperCase().includes("BO WISE") || 
-                                  row[0].toUpperCase().includes("SO WISE") || 
-                                  row[0].toUpperCase().includes("DETAILED REPORT")
-                              ) && row.slice(1).every(v => !v || v.trim() === ""));
-
-                if (isTitle) {
-                    let titleText = row[0] ? row[0].trim().toUpperCase() : "";
-                    if (titleText === lastSeenTitle) {
-                        // ✅ Duplicate title — skip karo
-                        return false;
-                    }
-                    lastSeenTitle = titleText;
-                    return true;
-                }
-                return true;
-            });
         }
 
         function populateDivisionDropdown() {
@@ -321,15 +266,12 @@
             const divVal = document.getElementById('divisionSelect').value.toUpperCase().trim();
             const subVal = document.getElementById('subDivSelect').value.toUpperCase().trim();
 
-            let filtered = loadedSheetRows.filter((row, idx) => {
-                // ✅ FIX: titleRowIndices set se check karo (array property pe nahi)
-                let isTitle = titleRowIndices.has(idx);
-                if (isTitle) return true;
-
+            currentlyFilteredRows = loadedSheetRows.filter(row => {
                 let rDiv = row[idxDivision] ? row[idxDivision].toUpperCase().trim() : "";
                 let rSub = row[idxSubDiv] ? row[idxSubDiv].toUpperCase().trim() : "";
 
                 if (rDiv.includes("GRAND TOTAL") || rSub.includes("GRAND TOTAL") || rDiv === "TOTAL") return false;
+
                 if (isStructuralRow(row[idxDivision], row[idxSubDiv])) return true;
 
                 if (divVal || subVal) {
@@ -341,9 +283,6 @@
                 return true;
             });
 
-            // ✅ FIX: Filter ke baad duplicate title rows hatao
-            currentlyFilteredRows = removeDuplicateTitleRows(filtered);
-
             renderTable();
         }
 
@@ -354,21 +293,26 @@
             globalHeaders.forEach(header => { html += `<th>${header || ''}</th>`; });
             html += '</tr></thead><tbody>';
 
-            currentlyFilteredRows.forEach((row, idx) => {
+            currentlyFilteredRows.forEach(row => {
+                let isMainTitleRow = false;
+                let finalTitleText = "";
+
+                // 🌟 LAW AND ORDER IN RENDERING:
+                // Pure row me pehle dhoodho ki kya ye ek title wali block hai
+                for (let i = 0; i < row.length; i++) {
+                    let cellVal = row[i] ? row[i].trim() : "";
+                    if (cellVal.toUpperCase().includes("BO WISE") || cellVal.toUpperCase().includes("SO WISE") || cellVal.toUpperCase().includes("DETAILED REPORT")) {
+                        isMainTitleRow = true;
+                        finalTitleText = cellVal; // Extract precise title statement like 'BO Wise Detailed Report Speed Post'
+                        break;
+                    }
+                }
+
                 let rDiv = row[idxDivision] ? row[idxDivision].toUpperCase().trim() : "";
                 let rSub = row[idxSubDiv] ? row[idxSubDiv].toUpperCase().trim() : "";
                 
                 let rowClass = "";
-                let isMainTitleRow = false;
-
-                // ✅ FIX: Title check ke liye row content dekho (index-based nahi, kyunki filtered array hai)
-                let isTitleContent = row[0] && (
-                    row[0].toUpperCase().includes("BO WISE") || 
-                    row[0].toUpperCase().includes("SO WISE") || 
-                    row[0].toUpperCase().includes("DETAILED REPORT")
-                ) && row.slice(1).every(v => !v || v.trim() === "");
-
-                if (isTitleContent || rDiv.includes("VERTICAL") || rDiv.includes("TARGET")) {
+                if (isMainTitleRow || rDiv.includes("VERTICAL") || rDiv.includes("TARGET")) {
                     rowClass = ' class="excel-header-row"';
                     isMainTitleRow = true;
                 } else if (rDiv.includes("DIVISION") || rSub.includes("NAME OF SD")) {
@@ -377,11 +321,15 @@
 
                 html += `<tr${rowClass}>`;
                 if (isMainTitleRow) {
-                    let titleText = row[0] || row.find(v => v && v.trim() !== "") || "Detailed Report";
-                    html += `<td colspan="${globalHeaders.length}" style="text-align: center; font-weight: bold;">${titleText}</td>`;
+                    if (!finalTitleText) {
+                        finalTitleText = row.find(v => v && v.trim() !== "") || "Detailed Report";
+                    }
+                    // CRITICAL FIX: Loop break karke baaki bache columns ko DOM se permanently mita diya!
+                    html += `<td colspan="${globalHeaders.length}" style="text-align: center; font-weight: bold; padding: 15px;">${finalTitleText}</td>`;
                 } else {
-                    globalHeaders.forEach((_, i) => {
-                        html += `<td>${row[i] !== undefined ? row[i] : ''}</td>`;
+                    // Normal execution for data cells
+                    globalHeaders.forEach((_, idx) => {
+                        html += `<td>${row[idx] !== undefined ? row[idx] : ''}</td>`;
                     });
                 }
                 html += '</tr>';
