@@ -25,14 +25,13 @@
         th, td { padding: 12px 15px; border: 1px solid #ddd; font-size: 14px; white-space: nowrap; }
         th { background-color: #1976d2; color: white; font-weight: 600; position: sticky; top: 0; }
         
-        /* Premium background formatting for internal table headings */
         .excel-header-row { background-color: #fff8e1 !important; font-weight: bold; color: #b78103; font-size: 15px; text-align: center; }
         .excel-column-row { background-color: #f1f5f9 !important; font-weight: bold; color: #334155; }
 
         tr:hover { background-color: #f8f9fa; }
         tr:nth-child(even) { background-color: #f9f9f9; }
         
-        .status-message { text-align: center; font-size: 16px; color: #666; padding: 50px; font-style: italic; font-weight: 500; }
+        .status-message { text-align: center; font-size: 18px; color: #444; padding: 60px; font-weight: 600; }
         .footer { text-align: center; margin-top: 40px; padding: 15px; border-top: 1px solid #ddd; font-size: 14px; color: #444; font-weight: 500; background-color: #fff; border-radius: 4px; box-shadow: 0 -1px 3px rgba(0,0,0,0.02); }
     </style>
 </head>
@@ -98,8 +97,8 @@
         let loadedSheetRows = [];
         let currentlyFilteredRows = [];
         
-        const idxDivision = 0;  // Column A is DIVISION
-        const idxSubDiv = 1;    // Column B is NAME OF SD
+        const idxDivision = 0;  // Column A
+        const idxSubDiv = 1;    // Column B
 
         const indoreRegionDivisions = [
             "INDORE CITY", "INDORE MFL", "KHANDWA", "MANDSAUR", 
@@ -146,17 +145,19 @@
             const statusMsg = document.getElementById('status-msg');
             const tableContainer = document.getElementById('table-container');
             const downloadBtn = document.getElementById('downloadBtn');
+            const subDivSelect = document.getElementById('subDivSelect');
             
             document.getElementById('divisionSelect').innerHTML = '<option value="">-- All Divisions (Full Region) --</option>';
-            document.getElementById('subDivSelect').innerHTML = '<option value="">-- All Sub-Divisions --</option>';
+            subDivSelect.innerHTML = '<option value="">-- All Sub-Divisions --</option>';
             document.getElementById('divisionSelect').disabled = true;
-            document.getElementById('subDivSelect').disabled = true;
+            subDivSelect.disabled = true;
 
             let key = (category === "revenue" || category === "booking") ? `master_${category}` : `${month}_${category}`;
             currentFileName = `${key}.csv`;
             const sheetURL = sheetLinks[key];
             
             statusMsg.style.display = 'block';
+            statusMsg.style.color = '#333';
             statusMsg.innerText = "Google Sheet se fresh data fetch ho raha hai...";
             tableContainer.innerHTML = '';
             downloadBtn.disabled = true;
@@ -169,11 +170,36 @@
                 
                 const parsedData = parseCSV(csvText);
                 globalHeaders = parsedData[0];
-                loadedSheetRows = parsedData.slice(1);
+                let rawRows = parsedData.slice(1);
+
+                // Smart Downward Autofill Logic to fix empty cells in Division Column
+                let currentRunningDivision = "";
+                loadedSheetRows = rawRows.map(row => {
+                    let divVal = row[idxDivision] ? row[idxDivision].trim() : "";
+                    
+                    // Verify if this is an actual valid division from our locked list
+                    let matchedDiv = indoreRegionDivisions.find(d => divVal.toUpperCase().startsWith(d));
+                    if (matchedDiv) {
+                        currentRunningDivision = matchedDiv;
+                    }
+                    
+                    // Clone row and fill background values for blank division structures
+                    let clonedRow = [...row];
+                    if ((!divVal || divVal === "") && currentRunningDivision !== "" && !isStructuralRow(row[idxDivision], row[idxSubDiv])) {
+                        clonedRow[idxDivision] = currentRunningDivision;
+                    }
+                    return clonedRow;
+                });
                 
                 statusMsg.style.display = 'none';
                 populateDivisionDropdown();
                 
+                // Block sub-divisions completely for Master Sheets
+                if (category === "revenue" || category === "booking") {
+                    subDivSelect.innerHTML = '<option value="">-- No Sub-Divisions Available --</option>';
+                    subDivSelect.disabled = true;
+                }
+
                 currentlyFilteredRows = loadedSheetRows;
                 renderTable();
                 downloadBtn.disabled = false; 
@@ -181,7 +207,8 @@
             } catch (error) {
                 console.error(error);
                 statusMsg.style.display = 'block';
-                statusMsg.innerHTML = `⚠️ Live Connection Error: Google Sheet data load nahi ho saka.`;
+                statusMsg.style.color = '#d32f2f';
+                statusMsg.innerText = "अभी डाटा अपलोड किया जाना बाकी है";
             }
         }
 
@@ -192,7 +219,8 @@
             let existingDivs = [...new Set(loadedSheetRows.map(r => r[idxDivision] ? r[idxDivision].trim().toUpperCase() : ""))];
             
             indoreRegionDivisions.forEach(d => {
-                if (existingDivs.includes(d)) {
+                // Partial match setup to catch variations like "INDORE CITY Total"
+                if (existingDivs.some(ed => ed.startsWith(d))) {
                     divSel.innerHTML += `<option value="${d}">${d}</option>`;
                 }
             });
@@ -202,6 +230,10 @@
         function onDivisionChange() {
             const selectedDiv = document.getElementById('divisionSelect').value;
             const subSel = document.getElementById('subDivSelect');
+            const category = document.getElementById('categorySelect').value;
+            
+            if (category === "revenue" || category === "booking") return; // Keep locked
+
             subSel.innerHTML = '<option value="">-- All Sub-Divisions --</option>';
             subSel.disabled = true;
 
@@ -212,7 +244,7 @@
                 
                 let uniqueSubs = [...new Set(rawSubs)].filter(s => {
                     let u = s.toUpperCase();
-                    return !u.includes("TOTAL") && !u.includes("GRAND") && !u.includes("NAME OF SD") && !u.includes("WISE DETAILED");
+                    return !u.includes("TOTAL") && !u.includes("GRAND") && !u.includes("NAME OF SD") && !u.includes("WISE DETAILED") && !u.includes("VERTICAL");
                 }).sort();
 
                 uniqueSubs.forEach(s => { subSel.innerHTML += `<option value="${s}">${s}</option>`; });
@@ -220,14 +252,13 @@
             }
         }
 
-        function isHeaderOrTitleRow(rDiv, rSub) {
-            let d = rDiv.toUpperCase();
-            let s = rSub.toUpperCase();
+        function isStructuralRow(rDiv, rSub) {
+            let d = rDiv ? rDiv.toUpperCase().trim() : "";
+            let s = rSub ? rSub.toUpperCase().trim() : "";
             
-            // Comprehensive check to catch any layout markup/title headers in your excel sheets
-            if (d.includes("WISE DETAILED") || d.includes("REPORT") || d.includes("DIVISION") || d.includes("GRAND TOTAL")) return true;
-            if (s.includes("WISE DETAILED") || s.includes("REPORT") || s.includes("NAME OF SD")) return true;
-            if (d === "" && s === "") return true; // Keep empty spacer rows intact
+            if (d.includes("WISE DETAILED") || d.includes("REPORT") || d.includes("DIVISION") || d.includes("VERTICAL") || d.includes("TARGET")) return true;
+            if (s.includes("WISE DETAILED") || s.includes("REPORT") || s.includes("NAME OF SD") || s.includes("VERTICAL")) return true;
+            if (d === "" && s === "") return true; 
             
             return false;
         }
@@ -244,16 +275,19 @@
                 let rDiv = row[idxDivision] ? row[idxDivision].toUpperCase().trim() : "";
                 let rSub = row[idxSubDiv] ? row[idxSubDiv].toUpperCase().trim() : "";
 
-                // 1. If it's a structural layout row or heading, ALWAYS show it
-                if (isHeaderOrTitleRow(rDiv, rSub)) return true;
+                // Permanently hide global Grand Total rows from showing up
+                if (rDiv.includes("GRAND TOTAL") || rSub.includes("GRAND TOTAL") || rDiv === "TOTAL") return false;
 
-                // 2. Hide specific internal Total/Summary blocks if active filtering is on
+                // 1. Maintain headers and layout wrappers intact
+                if (isStructuralRow(rDiv, rSub)) return true;
+
+                // 2. Hide local summary block sub-totals during active isolation mapping
                 if (divVal || subVal) {
                     if (rDiv.includes("TOTAL") || rSub.includes("TOTAL")) return false;
                 }
 
-                // 3. Main operational filtering logic
-                if (divVal && rDiv !== divVal) return false;
+                // 3. Operational query matching
+                if (divVal && !rDiv.startsWith(divVal)) return false;
                 if (subVal && rSub !== subVal) return false;
                 return true;
             });
@@ -273,7 +307,7 @@
                 let rSub = row[idxSubDiv] ? row[idxSubDiv].toUpperCase().trim() : "";
                 
                 let rowClass = "";
-                if (rDiv.includes("WISE DETAILED") || rSub.includes("WISE DETAILED")) {
+                if (rDiv.includes("WISE DETAILED") || rSub.includes("WISE DETAILED") || rDiv.includes("VERTICAL") || rDiv.includes("TARGET")) {
                     rowClass = ' class="excel-header-row"';
                 } else if (rDiv.includes("DIVISION") || rSub.includes("NAME OF SD")) {
                     rowClass = ' class="excel-column-row"';
