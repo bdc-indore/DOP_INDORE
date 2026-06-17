@@ -24,6 +24,11 @@
         table { width: 100%; border-collapse: collapse; text-align: left; table-layout: auto; }
         th, td { padding: 12px 15px; border: 1px solid #ddd; font-size: 14px; white-space: nowrap; }
         th { background-color: #1976d2; color: white; font-weight: 600; position: sticky; top: 0; }
+        
+        /* Premium background formatting for internal table headings */
+        .excel-header-row { background-color: #fff8e1 !important; font-weight: bold; color: #b78103; font-size: 15px; text-align: center; }
+        .excel-column-row { background-color: #f1f5f9 !important; font-weight: bold; color: #334155; }
+
         tr:hover { background-color: #f8f9fa; }
         tr:nth-child(even) { background-color: #f9f9f9; }
         
@@ -33,15 +38,12 @@
 </head>
 <body>
 
-    <!-- Top Postal Branding Header -->
     <div class="header">
         <h1>Open Source Information Portal</h1>
         <p>Indore Region - Department of Posts</p>
     </div>
 
-    <!-- Dropdown Filters Menu -->
     <div class="filter-container">
-        <!-- 1. Category -->
         <div class="filter-group">
             <label for="categorySelect">Select Report / Operation Type:</label>
             <select id="categorySelect" onchange="handleCategoryChange()">
@@ -53,7 +55,6 @@
             </select>
         </div>
 
-        <!-- 2. Month -->
         <div class="filter-group">
             <label id="monthLabel" for="monthSelect">Select Month:</label>
             <select id="monthSelect" onchange="loadSelectedFile()">
@@ -63,7 +64,6 @@
             </select>
         </div>
 
-        <!-- 3. New Division Filter -->
         <div class="filter-group">
             <label for="divisionSelect">Filter by Division:</label>
             <select id="divisionSelect" onchange="applyHierarchyFilter()" disabled>
@@ -71,7 +71,6 @@
             </select>
         </div>
 
-        <!-- 4. New Sub-Division Filter -->
         <div class="filter-group">
             <label for="subDivSelect">Filter by Sub-Division:</label>
             <select id="subDivSelect" onchange="applyHierarchyFilter()" disabled>
@@ -79,17 +78,14 @@
             </select>
         </div>
 
-        <!-- 📥 Download Button -->
         <button id="downloadBtn" class="download-btn" onclick="downloadFilteredCSV()" disabled>📥 Download Data for Excel</button>
     </div>
 
-    <!-- Data Display Area -->
     <div class="table-wrapper">
         <div id="status-msg" class="status-message">Data load ho raha hai, kripya intezar karein...</div>
         <div id="table-container"></div>
     </div>
 
-    <!-- Credits Footer -->
     <div class="footer">
         Developed by: <strong>Kapil Rajput, PA(RO), Indore Regional Office</strong>
     </div>
@@ -98,16 +94,18 @@
         let currentRawCSVText = ""; 
         let currentFileName = "report.csv";
         
-        // Data structural cache for filtering
         let globalHeaders = [];
         let loadedSheetRows = [];
         let currentlyFilteredRows = [];
         
-        // Hardcoded column indices matching your spreadsheet structure
-        const idxDivision = 1;  // Second column (B) is DIVISION
-        const idxSubDiv = 2;    // Third column (C) is NAME OF SD
+        const idxDivision = 0;  // Column A is DIVISION
+        const idxSubDiv = 1;    // Column B is NAME OF SD
 
-        // Saari 11 Sheets ke exact working links jo aapne bheje thhe
+        const indoreRegionDivisions = [
+            "INDORE CITY", "INDORE MFL", "KHANDWA", "MANDSAUR", 
+            "RATLAM", "SEHORE", "UJJAIN", "RMS ID"
+        ];
+
         const sheetLinks = {
             "april_combine": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=563942460",
             "april_speedpost": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=2046604428",
@@ -149,7 +147,6 @@
             const tableContainer = document.getElementById('table-container');
             const downloadBtn = document.getElementById('downloadBtn');
             
-            // Reset dropdowns to default state
             document.getElementById('divisionSelect').innerHTML = '<option value="">-- All Divisions (Full Region) --</option>';
             document.getElementById('subDivSelect').innerHTML = '<option value="">-- All Sub-Divisions --</option>';
             document.getElementById('divisionSelect').disabled = true;
@@ -160,7 +157,6 @@
             const sheetURL = sheetLinks[key];
             
             statusMsg.style.display = 'block';
-            statusMsg.style.color = '#666';
             statusMsg.innerText = "Google Sheet se fresh data fetch ho raha hai...";
             tableContainer.innerHTML = '';
             downloadBtn.disabled = true;
@@ -168,25 +164,16 @@
             try {
                 const response = await fetch(sheetURL + '&t=' + new Date().getTime());
                 if (!response.ok) throw new Error("Fetch failed");
-
                 const csvText = await response.text();
                 currentRawCSVText = csvText; 
                 
                 const parsedData = parseCSV(csvText);
-                if (parsedData.length === 0 || (parsedData.length === 1 && parsedData[0][0] === '')) {
-                    statusMsg.innerText = "Is Google Sheet Tab mein koi data nahi mila.";
-                    return;
-                }
-
                 globalHeaders = parsedData[0];
                 loadedSheetRows = parsedData.slice(1);
                 
                 statusMsg.style.display = 'none';
-                
-                // Active hierarchy filters dynamically
                 populateDivisionDropdown();
                 
-                // Show full loaded data by default
                 currentlyFilteredRows = loadedSheetRows;
                 renderTable();
                 downloadBtn.disabled = false; 
@@ -194,23 +181,21 @@
             } catch (error) {
                 console.error(error);
                 statusMsg.style.display = 'block';
-                statusMsg.style.color = '#d32f2f';
-                statusMsg.innerHTML = `⚠️ Live Connection Error: Google Sheet se data sampark nahi ho pa raha hai.`;
+                statusMsg.innerHTML = `⚠️ Live Connection Error: Google Sheet data load nahi ho saka.`;
             }
         }
 
         function populateDivisionDropdown() {
             const divSel = document.getElementById('divisionSelect');
-            
-            // Collect clean and distinct values from the DIVISION column
-            let rawDivs = loadedSheetRows.map(r => r[idxDivision] ? r[idxDivision].trim() : "").filter(Boolean);
-            let uniqueDivs = [...new Set(rawDivs)].filter(d => {
-                let u = d.toUpperCase();
-                return !u.includes("TOTAL") && !u.includes("GRAND");
-            }).sort();
-
             divSel.innerHTML = '<option value="">-- All Divisions (Full Region) --</option>';
-            uniqueDivs.forEach(d => { divSel.innerHTML += `<option value="${d}">${d}</option>`; });
+            
+            let existingDivs = [...new Set(loadedSheetRows.map(r => r[idxDivision] ? r[idxDivision].trim().toUpperCase() : ""))];
+            
+            indoreRegionDivisions.forEach(d => {
+                if (existingDivs.includes(d)) {
+                    divSel.innerHTML += `<option value="${d}">${d}</option>`;
+                }
+            });
             divSel.disabled = false;
         }
 
@@ -221,14 +206,13 @@
             subSel.disabled = true;
 
             if (selectedDiv) {
-                // Collect and render Sub-divisions associated only with the selected division
                 let rawSubs = loadedSheetRows
                     .filter(r => r[idxDivision] && r[idxDivision].trim().toUpperCase() === selectedDiv.toUpperCase())
                     .map(r => r[idxSubDiv] ? r[idxSubDiv].trim() : "").filter(Boolean);
                 
                 let uniqueSubs = [...new Set(rawSubs)].filter(s => {
                     let u = s.toUpperCase();
-                    return !u.includes("TOTAL") && !u.includes("GRAND");
+                    return !u.includes("TOTAL") && !u.includes("GRAND") && !u.includes("NAME OF SD") && !u.includes("WISE DETAILED");
                 }).sort();
 
                 uniqueSubs.forEach(s => { subSel.innerHTML += `<option value="${s}">${s}</option>`; });
@@ -236,8 +220,19 @@
             }
         }
 
+        function isHeaderOrTitleRow(rDiv, rSub) {
+            let d = rDiv.toUpperCase();
+            let s = rSub.toUpperCase();
+            
+            // Comprehensive check to catch any layout markup/title headers in your excel sheets
+            if (d.includes("WISE DETAILED") || d.includes("REPORT") || d.includes("DIVISION") || d.includes("GRAND TOTAL")) return true;
+            if (s.includes("WISE DETAILED") || s.includes("REPORT") || s.includes("NAME OF SD")) return true;
+            if (d === "" && s === "") return true; // Keep empty spacer rows intact
+            
+            return false;
+        }
+
         function applyHierarchyFilter() {
-            // Trigger Sub-division state update if division was changed
             if (event && event.target.id === "divisionSelect") {
                 onDivisionChange();
             }
@@ -249,9 +244,15 @@
                 let rDiv = row[idxDivision] ? row[idxDivision].toUpperCase().trim() : "";
                 let rSub = row[idxSubDiv] ? row[idxSubDiv].toUpperCase().trim() : "";
 
-                // Skip summary layout lines from final rendering
-                if (rDiv.includes("TOTAL") || rDiv.includes("GRAND")) return false;
+                // 1. If it's a structural layout row or heading, ALWAYS show it
+                if (isHeaderOrTitleRow(rDiv, rSub)) return true;
 
+                // 2. Hide specific internal Total/Summary blocks if active filtering is on
+                if (divVal || subVal) {
+                    if (rDiv.includes("TOTAL") || rSub.includes("TOTAL")) return false;
+                }
+
+                // 3. Main operational filtering logic
                 if (divVal && rDiv !== divVal) return false;
                 if (subVal && rSub !== subVal) return false;
                 return true;
@@ -268,7 +269,17 @@
             html += '</tr></thead><tbody>';
 
             currentlyFilteredRows.forEach(row => {
-                html += '<tr>';
+                let rDiv = row[idxDivision] ? row[idxDivision].toUpperCase().trim() : "";
+                let rSub = row[idxSubDiv] ? row[idxSubDiv].toUpperCase().trim() : "";
+                
+                let rowClass = "";
+                if (rDiv.includes("WISE DETAILED") || rSub.includes("WISE DETAILED")) {
+                    rowClass = ' class="excel-header-row"';
+                } else if (rDiv.includes("DIVISION") || rSub.includes("NAME OF SD")) {
+                    rowClass = ' class="excel-column-row"';
+                }
+
+                html += `<tr${rowClass}>`;
                 globalHeaders.forEach((_, idx) => { html += `<td>${row[idx] !== undefined ? row[idx] : ''}</td>`; });
                 html += '</tr>';
             });
