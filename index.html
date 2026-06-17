@@ -25,7 +25,7 @@
         th, td { padding: 12px 15px; border: 1px solid #ddd; font-size: 14px; white-space: nowrap; }
         th { background-color: #1976d2; color: white; font-weight: 600; position: sticky; top: 0; }
         
-        .excel-header-row { background-color: #fff8e1 !important; font-weight: bold; color: #b78103; font-size: 15px; text-align: center; }
+        .excel-header-row { background-color: #fff8e1 !important; font-weight: bold; color: #b78103; font-size: 15px; }
         .excel-column-row { background-color: #f1f5f9 !important; font-weight: bold; color: #334155; }
 
         tr:hover { background-color: #f8f9fa; }
@@ -97,8 +97,8 @@
         let loadedSheetRows = [];
         let currentlyFilteredRows = [];
         
-        const idxDivision = 0;  // Column A
-        const idxSubDiv = 1;    // Column B
+        const idxDivision = 0;  
+        const idxSubDiv = 1;    
 
         const indoreRegionDivisions = [
             "INDORE CITY", "INDORE MFL", "KHANDWA", "MANDSAUR", 
@@ -172,18 +172,15 @@
                 globalHeaders = parsedData[0];
                 let rawRows = parsedData.slice(1);
 
-                // Smart Downward Autofill Logic to fix empty cells in Division Column
                 let currentRunningDivision = "";
                 loadedSheetRows = rawRows.map(row => {
                     let divVal = row[idxDivision] ? row[idxDivision].trim() : "";
                     
-                    // Verify if this is an actual valid division from our locked list
                     let matchedDiv = indoreRegionDivisions.find(d => divVal.toUpperCase().startsWith(d));
                     if (matchedDiv) {
                         currentRunningDivision = matchedDiv;
                     }
                     
-                    // Clone row and fill background values for blank division structures
                     let clonedRow = [...row];
                     if ((!divVal || divVal === "") && currentRunningDivision !== "" && !isStructuralRow(row[idxDivision], row[idxSubDiv])) {
                         clonedRow[idxDivision] = currentRunningDivision;
@@ -194,7 +191,6 @@
                 statusMsg.style.display = 'none';
                 populateDivisionDropdown();
                 
-                // Block sub-divisions completely for Master Sheets
                 if (category === "revenue" || category === "booking") {
                     subDivSelect.innerHTML = '<option value="">-- No Sub-Divisions Available --</option>';
                     subDivSelect.disabled = true;
@@ -219,7 +215,6 @@
             let existingDivs = [...new Set(loadedSheetRows.map(r => r[idxDivision] ? r[idxDivision].trim().toUpperCase() : ""))];
             
             indoreRegionDivisions.forEach(d => {
-                // Partial match setup to catch variations like "INDORE CITY Total"
                 if (existingDivs.some(ed => ed.startsWith(d))) {
                     divSel.innerHTML += `<option value="${d}">${d}</option>`;
                 }
@@ -232,7 +227,7 @@
             const subSel = document.getElementById('subDivSelect');
             const category = document.getElementById('categorySelect').value;
             
-            if (category === "revenue" || category === "booking") return; // Keep locked
+            if (category === "revenue" || category === "booking") return; 
 
             subSel.innerHTML = '<option value="">-- All Sub-Divisions --</option>';
             subSel.disabled = true;
@@ -275,18 +270,14 @@
                 let rDiv = row[idxDivision] ? row[idxDivision].toUpperCase().trim() : "";
                 let rSub = row[idxSubDiv] ? row[idxSubDiv].toUpperCase().trim() : "";
 
-                // Permanently hide global Grand Total rows from showing up
                 if (rDiv.includes("GRAND TOTAL") || rSub.includes("GRAND TOTAL") || rDiv === "TOTAL") return false;
 
-                // 1. Maintain headers and layout wrappers intact
-                if (isStructuralRow(rDiv, rSub)) return true;
+                if (isStructuralRow(row[idxDivision], row[idxSubDiv])) return true;
 
-                // 2. Hide local summary block sub-totals during active isolation mapping
                 if (divVal || subVal) {
                     if (rDiv.includes("TOTAL") || rSub.includes("TOTAL")) return false;
                 }
 
-                // 3. Operational query matching
                 if (divVal && !rDiv.startsWith(divVal)) return false;
                 if (subVal && rSub !== subVal) return false;
                 return true;
@@ -307,15 +298,31 @@
                 let rSub = row[idxSubDiv] ? row[idxSubDiv].toUpperCase().trim() : "";
                 
                 let rowClass = "";
+                let isMainTitleRow = false;
+
                 if (rDiv.includes("WISE DETAILED") || rSub.includes("WISE DETAILED") || rDiv.includes("VERTICAL") || rDiv.includes("TARGET")) {
                     rowClass = ' class="excel-header-row"';
+                    isMainTitleRow = true;
                 } else if (rDiv.includes("DIVISION") || rSub.includes("NAME OF SD")) {
                     rowClass = ' class="excel-column-row"';
                 }
 
                 html += `<tr${rowClass}>`;
-                globalHeaders.forEach((_, idx) => { html += `<td>${row[idx] !== undefined ? row[idx] : ''}</td>`; });
-                html += '</tr>';
+                globalHeaders.forEach((colValue, idx) => {
+                    // 🌟 SMART CLEANER LOGIC: Title rows won't repeat endlessly left-to-right anymore
+                    if (isMainTitleRow) {
+                        if (idx === 0) {
+                            // Find the first non-empty text in the title row to display
+                            let titleText = row.find(v => v && v.trim() !== "") || "Detailed Report";
+                            html += `<td colspan="${globalHeaders.length}" style="text-align: center;">${titleText}</td>`;
+                        }
+                        // Skip rendering subsequent duplicate columns for this header row
+                    } else {
+                        html += `<td>${row[idx] !== undefined ? row[idx] : ''}</td>`;
+                    }
+                });
+                if (!isMainTitleRow) html += '</tr>';
+                else html += '</tr>';
             });
 
             html += '</tbody></table>';
