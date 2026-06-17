@@ -21,11 +21,21 @@
         .download-btn:disabled { background-color: #cccccc; cursor: not-allowed; }
 
         .table-wrapper { background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); overflow-x: auto; min-height: 250px; flex: 1; margin-top: 10px; }
-        table { width: 100%; border-collapse: collapse; text-align: left; table-layout: auto; }
-        th, td { padding: 12px 15px; border: 1px solid #ddd; font-size: 14px; white-space: nowrap; }
+        
+        /* 🌟 FIXED: Table structure optimized for screen-fit */
+        table { width: 100%; border-collapse: collapse; text-align: left; table-layout: fixed; }
+        
+        /* 🌟 FIXED: Text will now wrap nicely instead of endlessly overflowing */
+        th, td { padding: 10px 12px; border: 1px solid #ddd; font-size: 13px; word-wrap: break-word; white-space: normal; vertical-align: top; }
+        
+        /* Dynamic Column Width Budgeting */
+        th:nth-child(1) { width: 15%; } /* DIVISION Column */
+        th:nth-child(2) { width: 15%; } /* NAME OF SD Column */
+        th:nth-child(3) { width: 10%; } /* Total Offices Column */
+        
         th { background-color: #1976d2; color: white; font-weight: 600; position: sticky; top: 0; }
         
-        .excel-header-row { background-color: #fff8e1 !important; font-weight: bold; color: #b78103; font-size: 15px; text-align: center; }
+        .excel-header-row { background-color: #fff8e1 !important; font-weight: bold; color: #b78103; font-size: 14px; text-align: center; }
         .excel-column-row { background-color: #f1f5f9 !important; font-weight: bold; color: #334155; }
 
         tr:hover { background-color: #f8f9fa; }
@@ -118,7 +128,7 @@
             "june_speedpost": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=287890525",
             "june_parcel": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=2068951621",
             
-            "master_revenue": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=1335977131",
+            "master_revenue": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkuj/export?format=csv&gid=1335977131",
             "master_booking": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=2092560953"
         };
 
@@ -311,7 +321,6 @@
                 globalHeaders.forEach((colValue, idx) => {
                     if (isMainTitleRow) {
                         if (idx === 0) {
-                            // 🌟 ULTRA CLEANER LOGIC: Pure row content se check karega aur duplications ko block karega
                             let titleText = row.find(v => v && v.trim() !== "" && !v.toUpperCase().includes("DETAILED") && !v.toUpperCase().includes("REPORT"));
                             if (!titleText) {
                                 titleText = row.find(v => v && v.trim() !== "") || "Detailed Report";
