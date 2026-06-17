@@ -25,7 +25,7 @@
         th, td { padding: 12px 15px; border: 1px solid #ddd; font-size: 14px; white-space: nowrap; }
         th { background-color: #1976d2; color: white; font-weight: 600; position: sticky; top: 0; }
         
-        .excel-header-row { background-color: #fff8e1 !important; font-weight: bold; color: #b78103; font-size: 15px; }
+        .excel-header-row { background-color: #fff8e1 !important; font-weight: bold; color: #b78103; font-size: 15px; text-align: center; }
         .excel-column-row { background-color: #f1f5f9 !important; font-weight: bold; color: #334155; }
 
         tr:hover { background-color: #f8f9fa; }
@@ -239,7 +239,7 @@
                 
                 let uniqueSubs = [...new Set(rawSubs)].filter(s => {
                     let u = s.toUpperCase();
-                    return !u.includes("TOTAL") && !u.includes("GRAND") && !u.includes("NAME OF SD") && !u.includes("WISE DETAILED") && !u.includes("VERTICAL");
+                    return !u.includes("TOTAL") && !u.includes("GRAND") && !u.includes("NAME OF SD") && !u.includes("DETAILED") && !u.includes("REPORT") && !u.includes("VERTICAL");
                 }).sort();
 
                 uniqueSubs.forEach(s => { subSel.innerHTML += `<option value="${s}">${s}</option>`; });
@@ -251,8 +251,8 @@
             let d = rDiv ? rDiv.toUpperCase().trim() : "";
             let s = rSub ? rSub.toUpperCase().trim() : "";
             
-            if (d.includes("WISE DETAILED") || d.includes("REPORT") || d.includes("DIVISION") || d.includes("VERTICAL") || d.includes("TARGET")) return true;
-            if (s.includes("WISE DETAILED") || s.includes("REPORT") || s.includes("NAME OF SD") || s.includes("VERTICAL")) return true;
+            if (d.includes("DETAILED") || d.includes("REPORT") || d.includes("DIVISION") || d.includes("VERTICAL") || d.includes("TARGET")) return true;
+            if (s.includes("DETAILED") || s.includes("REPORT") || s.includes("NAME OF SD") || s.includes("VERTICAL")) return true;
             if (d === "" && s === "") return true; 
             
             return false;
@@ -300,7 +300,7 @@
                 let rowClass = "";
                 let isMainTitleRow = false;
 
-                if (rDiv.includes("WISE DETAILED") || rSub.includes("WISE DETAILED") || rDiv.includes("VERTICAL") || rDiv.includes("TARGET")) {
+                if (rDiv.includes("DETAILED") || rSub.includes("DETAILED") || rDiv.includes("VERTICAL") || rDiv.includes("TARGET")) {
                     rowClass = ' class="excel-header-row"';
                     isMainTitleRow = true;
                 } else if (rDiv.includes("DIVISION") || rSub.includes("NAME OF SD")) {
@@ -309,20 +309,20 @@
 
                 html += `<tr${rowClass}>`;
                 globalHeaders.forEach((colValue, idx) => {
-                    // 🌟 SMART CLEANER LOGIC: Title rows won't repeat endlessly left-to-right anymore
                     if (isMainTitleRow) {
                         if (idx === 0) {
-                            // Find the first non-empty text in the title row to display
-                            let titleText = row.find(v => v && v.trim() !== "") || "Detailed Report";
+                            // 🌟 ULTRA CLEANER LOGIC: Pure row content se check karega aur duplications ko block karega
+                            let titleText = row.find(v => v && v.trim() !== "" && !v.toUpperCase().includes("DETAILED") && !v.toUpperCase().includes("REPORT"));
+                            if (!titleText) {
+                                titleText = row.find(v => v && v.trim() !== "") || "Detailed Report";
+                            }
                             html += `<td colspan="${globalHeaders.length}" style="text-align: center;">${titleText}</td>`;
                         }
-                        // Skip rendering subsequent duplicate columns for this header row
                     } else {
                         html += `<td>${row[idx] !== undefined ? row[idx] : ''}</td>`;
                     }
                 });
-                if (!isMainTitleRow) html += '</tr>';
-                else html += '</tr>';
+                html += '</tr>';
             });
 
             html += '</tbody></table>';
