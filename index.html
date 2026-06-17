@@ -57,11 +57,12 @@
         </div>
 
         <div class="filter-group">
-            <label id="monthLabel" for="monthSelect">Select Month:</label>
+            <label id="monthLabel" for="monthSelect">Select Month / Status:</label>
             <select id="monthSelect" onchange="loadSelectedFile()">
                 <option value="april">April</option>
                 <option value="may">May</option>
                 <option value="june">June (Live Updating)</option>
+                <option value="live_june" id="liveJuneOpt" style="display:none;">June Till Date (Live Updating)</option>
             </select>
         </div>
 
@@ -103,7 +104,6 @@
         let dynamicIdxSubDiv = 1;    
         let dynamicIdxBookingCount = -1; 
 
-        // 🌟 FIXED: Added 'ID DIVISION' into the official master core mapping to handle RMS separation cleanly
         const indoreRegionDivisions = [
             "INDORE CITY", "INDORE MFL", "KHANDWA", "MANDSAUR", 
             "RATLAM", "SEHORE", "UJJAIN", "RMS ID", "ID DIVISION"
@@ -142,13 +142,24 @@
         function handleCategoryChange() {
             const category = document.getElementById('categorySelect').value;
             const monthSelect = document.getElementById('monthSelect');
+            const liveOpt = document.getElementById('liveJuneOpt');
             
-            monthSelect.disabled = (category === "revenue" || category === "booking" || category === "combine_nil" || category === "parcel_nil");
+            if (category === "revenue" || category === "booking" || category.endsWith("_nil")) {
+                liveOpt.style.display = 'block';
+                monthSelect.value = "live_june";
+                monthSelect.disabled = true;
+            } else {
+                liveOpt.style.display = 'none';
+                if(monthSelect.value === "live_june") {
+                    monthSelect.value = "june";
+                }
+                monthSelect.disabled = false;
+            }
             loadSelectedFile();    
         }
 
         async function loadSelectedFile() {
-            const month = document.getElementById('monthSelect').value;
+            let month = document.getElementById('monthSelect').value;
             const category = document.getElementById('categorySelect').value;
             const statusMsg = document.getElementById('status-msg');
             const tableContainer = document.getElementById('table-container');
@@ -163,7 +174,7 @@
             let key = "";
             if (category === "revenue" || category === "booking") {
                 key = `master_${category}`;
-            } else if (category === "combine_nil" || category === "parcel_nil") {
+            } else if (category.endsWith("_nil")) {
                 key = `master_office_${category.replace('_nil', '')}`; 
             } else {
                 key = `${month}_${category}`;
@@ -174,7 +185,7 @@
             
             statusMsg.style.display = 'block';
             statusMsg.style.color = '#333';
-            statusMsg.innerText = "Google Sheet se fresh data fetch ho raha hai...";
+            statusMsg.innerText = "Fresh operational data fetch ho raha hai...";
             tableContainer.innerHTML = '';
             downloadBtn.disabled = true;
 
@@ -196,10 +207,15 @@
                     let headName = h.toUpperCase().trim();
                     if (headName === "DIVISION" || headName.includes("DIVISION NAME")) dynamicIdxDivision = idx;
                     if (headName === "NAME OF SD" || headName.includes("SUB DIVISION")) dynamicIdxSubDiv = idx;
-                    if (headName === "TOTAL BOOKING" || headName === "TOTAL_BOOKING" || headName.includes("SUM OF TOTAL") || headName === "BOOKING COUNT") {
+                    if (headName === "TOTAL BOOKING" || headName === "TOTAL_BOOKING" || headName.includes("SUM OF TOTAL") || headName.includes("BOOKING COUNT") || headName.includes("COUNT OF")) {
                         dynamicIdxBookingCount = idx;
                     }
                 });
+
+                // Fallback check if headers use completely abstract column naming configurations
+                if (dynamicIdxBookingCount === -1 && category.endsWith("_nil")) {
+                    dynamicIdxBookingCount = globalHeaders.length - 1; 
+                }
 
                 let currentRunningDivision = "";
                 loadedSheetRows = rawRows.map(row => {
@@ -223,7 +239,6 @@
                     } else {
                         let divVal = row[dynamicIdxDivision] ? row[dynamicIdxDivision].trim().toUpperCase() : "";
                         
-                        // 🌟 FIXED: Exact structural check to intercept 'ID DIVISION' safely before running fallbacks
                         let matchedDiv = indoreRegionDivisions.find(d => divVal.startsWith(d));
                         if (matchedDiv) {
                             currentRunningDivision = matchedDiv;
@@ -322,18 +337,25 @@
                 let rSub = row[dynamicIdxSubDiv] ? row[dynamicIdxSubDiv].toUpperCase().trim() : "";
 
                 if (rDiv.includes("GRAND TOTAL") || rSub.includes("GRAND TOTAL") || rDiv === "TOTAL") return false;
-                if (isStructuralRow(row[dynamicIdxDivision], row[dynamicIdxSubDiv])) return true;
+                
+                // 🌟 CRITICAL FIX: Structural rows must match selected dropdown division filter strictly
+                if (isStructuralRow(row[dynamicIdxDivision], row[dynamicIdxSubDiv])) {
+                    if (divVal && !rDiv.startsWith(divVal) && rDiv !== "") return false;
+                    return true;
+                }
 
                 if (divVal || subVal) {
                     if (rDiv.includes("TOTAL") || rSub.includes("TOTAL")) return false;
                 }
 
+                // 🌟 IRONCLAD FILTER: Isolates rows where booking count is strictly 0. 
+                // Any cell value > 0 (High booking offices) will be thrown out instantly!
                 if (category.endsWith("_nil")) {
                     if (dynamicIdxBookingCount !== -1) {
-                        let bookingValue = row[dynamicIdxBookingCount] ? row[dynamicIdxBookingCount].toString().trim() : "";
-                        if (bookingValue !== "0") return false; 
-                    } else {
-                        return false; 
+                        let bookingValue = row[dynamicIdxBookingCount] ? row[dynamicIdxBookingCount].toString().trim() : "0";
+                        if (bookingValue === "" || isNaN(bookingValue) || parseInt(bookingValue, 10) !== 0) {
+                            return false; 
+                        }
                     }
                 }
 
@@ -362,12 +384,13 @@
                     if (cellVal.toUpperCase().includes("BO WISE") || cellVal.toUpperCase().includes("SO WISE") || cellVal.toUpperCase().includes("DETAILED REPORT") || cellVal.toUpperCase().includes("OFFICE WISE")) {
                         isMainTitleRow = true;
                         finalTitleText = cellVal; 
-                        
-                        if (category.endsWith("_nil")) {
-                            finalTitleText = "List of Offices with NIL Bookings (Indore Region) 🔴";
-                        }
                         break;
                     }
+                }
+
+                if (category.endsWith("_nil")) {
+                    isMainTitleRow = true;
+                    finalTitleText = "List of Offices with NIL Bookings (Indore Region) - June Till Date 🔴";
                 }
 
                 let rDiv = row[dynamicIdxDivision] ? row[dynamicIdxDivision].toUpperCase().trim() : "";
@@ -383,7 +406,6 @@
 
                 html += `<tr${rowClass}>`;
                 if (isMainTitleRow) {
-                    if (!finalTitleText) finalTitleText = "Detailed Report List";
                     html += `<td colspan="${globalHeaders.length}" style="text-align: center; font-weight: bold; padding: 15px;">${finalTitleText}</td>`;
                 } else {
                     globalHeaders.forEach((_, idx) => {
@@ -428,7 +450,7 @@
             document.body.removeChild(link);
         }
 
-        window.onload = loadSelectedFile;
+        window.onload = handleCategoryChange;
     </script>
 </body>
 </html>
