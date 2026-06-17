@@ -116,7 +116,7 @@
             
             "may_combine": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=1030053545",
             "may_speedpost": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=1018219322",
-            "may_parcel": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=645073986",
+            "may_parcel": "https://docs.google.com/spreadsheets/d/645073986",
             
             "june_combine": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=530358817",
             "june_speedpost": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=287890525",
@@ -212,7 +212,6 @@
                     }
                 });
 
-                // Fallback check if headers use completely abstract column naming configurations
                 if (dynamicIdxBookingCount === -1 && category.endsWith("_nil")) {
                     dynamicIdxBookingCount = globalHeaders.length - 1; 
                 }
@@ -331,15 +330,16 @@
             const subVal = document.getElementById('subDivSelect').value.toUpperCase().trim();
 
             currentlyFilteredRows = loadedSheetRows.filter(row => {
-                if (row._isProcessedTitle) return true; 
+                // 🌟 FIXED: Ignore raw structural title rows inside data filtering loop for Nil views completely
+                if (category.endsWith("_nil") && row._isProcessedTitle) return false;
 
                 let rDiv = row[dynamicIdxDivision] ? row[dynamicIdxDivision].toUpperCase().trim() : "";
                 let rSub = row[dynamicIdxSubDiv] ? row[dynamicIdxSubDiv].toUpperCase().trim() : "";
 
                 if (rDiv.includes("GRAND TOTAL") || rSub.includes("GRAND TOTAL") || rDiv === "TOTAL") return false;
                 
-                // 🌟 CRITICAL FIX: Structural rows must match selected dropdown division filter strictly
                 if (isStructuralRow(row[dynamicIdxDivision], row[dynamicIdxSubDiv])) {
+                    if (category.endsWith("_nil")) return false; // Never process sub headers inside Nil Lists
                     if (divVal && !rDiv.startsWith(divVal) && rDiv !== "") return false;
                     return true;
                 }
@@ -348,8 +348,6 @@
                     if (rDiv.includes("TOTAL") || rSub.includes("TOTAL")) return false;
                 }
 
-                // 🌟 IRONCLAD FILTER: Isolates rows where booking count is strictly 0. 
-                // Any cell value > 0 (High booking offices) will be thrown out instantly!
                 if (category.endsWith("_nil")) {
                     if (dynamicIdxBookingCount !== -1) {
                         let bookingValue = row[dynamicIdxBookingCount] ? row[dynamicIdxBookingCount].toString().trim() : "0";
@@ -375,22 +373,24 @@
             globalHeaders.forEach(header => { html += `<th>${header || ''}</th>`; });
             html += '</tr></thead><tbody>';
 
+            // 🌟 FIXED: Inject the solitary single Yellow Banner only once at the top of the dataset
+            if (category.endsWith("_nil") && currentlyFilteredRows.length > 0) {
+                html += `<tr class="excel-header-row"><td colspan="${globalHeaders.length}" style="text-align: center; font-weight: bold; padding: 15px;">List of Offices with NIL Bookings (Indore Region) - June Till Date 🔴</td></tr>`;
+            }
+
             currentlyFilteredRows.forEach(row => {
                 let isMainTitleRow = false;
                 let finalTitleText = "";
 
-                for (let i = 0; i < row.length; i++) {
-                    let cellVal = row[i] ? row[i].trim() : "";
-                    if (cellVal.toUpperCase().includes("BO WISE") || cellVal.toUpperCase().includes("SO WISE") || cellVal.toUpperCase().includes("DETAILED REPORT") || cellVal.toUpperCase().includes("OFFICE WISE")) {
-                        isMainTitleRow = true;
-                        finalTitleText = cellVal; 
-                        break;
+                if (!category.endsWith("_nil")) {
+                    for (let i = 0; i < row.length; i++) {
+                        let cellVal = row[i] ? row[i].trim() : "";
+                        if (cellVal.toUpperCase().includes("BO WISE") || cellVal.toUpperCase().includes("SO WISE") || cellVal.toUpperCase().includes("DETAILED REPORT") || cellVal.toUpperCase().includes("OFFICE WISE")) {
+                            isMainTitleRow = true;
+                            finalTitleText = cellVal; 
+                            break;
+                        }
                     }
-                }
-
-                if (category.endsWith("_nil")) {
-                    isMainTitleRow = true;
-                    finalTitleText = "List of Offices with NIL Bookings (Indore Region) - June Till Date 🔴";
                 }
 
                 let rDiv = row[dynamicIdxDivision] ? row[dynamicIdxDivision].toUpperCase().trim() : "";
