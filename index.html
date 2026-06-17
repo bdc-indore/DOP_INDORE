@@ -16,7 +16,6 @@
         select { padding: 8px 12px; font-size: 15px; border: 1px solid #ccc; border-radius: 4px; min-width: 260px; background-color: #fff; cursor: pointer; height: 40px; }
         select:disabled { background-color: #eee; cursor: not-allowed; color: #aaa; }
         
-        /* 📥 Professional Green Download Button */
         .download-btn { background-color: #2e7d32; color: white; border: none; padding: 0 20px; font-size: 15px; font-weight: bold; border-radius: 4px; cursor: pointer; margin-left: auto; transition: background 0.2s; height: 40px; line-height: 40px; display: flex; align-items: center; justify-content: center; gap: 8px; }
         .download-btn:hover { background-color: #1b5e20; }
         .download-btn:disabled { background-color: #cccccc; cursor: not-allowed; }
@@ -29,20 +28,16 @@
         tr:nth-child(even) { background-color: #f9f9f9; }
         
         .status-message { text-align: center; font-size: 16px; color: #666; padding: 50px; font-style: italic; font-weight: 500; }
-        
-        /* Official Footer Design */
         .footer { text-align: center; margin-top: 40px; padding: 15px; border-top: 1px solid #ddd; font-size: 14px; color: #444; font-weight: 500; background-color: #fff; border-radius: 4px; box-shadow: 0 -1px 3px rgba(0,0,0,0.02); }
     </style>
 </head>
 <body>
 
-    <!-- Top Postal Branding Header -->
     <div class="header">
         <h1>Open Source Information Portal</h1>
         <p>Indore Region - Department of Posts</p>
     </div>
 
-    <!-- Dropdown Filters Menu -->
     <div class="filter-container">
         <div class="filter-group">
             <label for="categorySelect">Select Report / Operation Type:</label>
@@ -64,17 +59,14 @@
             </select>
         </div>
 
-        <!-- 📥 Download Button (Works smoothly on Desktop & Mobile) -->
         <button id="downloadBtn" class="download-btn" onclick="downloadCSV()" disabled>📥 Download Data for Excel</button>
     </div>
 
-    <!-- Data Display Area -->
     <div class="table-wrapper">
         <div id="status-msg" class="status-message">Data load ho raha hai, kripya intezar karein...</div>
         <div id="table-container"></div>
     </div>
 
-    <!-- Credits Footer with Your Details -->
     <div class="footer">
         Developed by: <strong>Kapil Rajput, PA(RO), Indore Regional Office</strong>
     </div>
@@ -83,29 +75,28 @@
         let currentRawCSVText = ""; 
         let currentFileName = "report.csv";
 
-        // ⚠️ AAPKE TABS KE LIVE GOOGLE SHEET LINKS YAHAN CONFIGURABLE HAIN
+        // ✅ SARE 11 LIVE TABS KE LINKS PERFECTLY INTEGRATE HO CHUKE HAIN
         const sheetLinks = {
-            // April Links (Jaise hi link mile, quotes ke andar paste kar dena)
-            "april_combine": "YAHAN_APRIL_COMBINE_VALA_CSV_LINK_DALO",
-            "april_speedpost": "YAHAN_APRIL_SPEEDPOST_VALA_CSV_LINK_DALO",
-            "april_parcel": "YAHAN_APRIL_PARCEL_VALA_CSV_LINK_DALO",
+            // April Links
+            "april_combine": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=563942460",
+            "april_speedpost": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=2046604428",
+            "april_parcel": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=1001941191",
             
-            // May Links (Jaise hi link mile, quotes ke andar paste kar dena)
-            "may_combine": "YAHAN_MAY_COMBINE_VALA_CSV_LINK_DALO",
-            "may_speedpost": "YAHAN_MAY_SPEEDPOST_VALA_CSV_LINK_DALO",
-            "may_parcel": "YAHAN_MAY_PARCEL_VALA_CSV_LINK_DALO",
+            // May Links
+            "may_combine": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=1030053545",
+            "may_speedpost": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=1018219322",
+            "may_parcel": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=645073986",
             
-            // June Links (Jaise hi link mile, quotes ke andar paste kar dena)
-            "june_combine": "YAHAN_JUNE_COMBINE_VALA_CSV_LINK_DALO",
-            "june_speedpost": "YAHAN_JUNE_SPEEDPOST_VALA_CSV_LINK_DALO",
-            "june_parcel": "YAHAN_JUNE_PARCEL_VALA_CSV_LINK_DALO",
+            // June Links
+            "june_combine": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=530358817",
+            "june_speedpost": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=287890525",
+            "june_parcel": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=2068951621",
             
-            // ✅ Master Links (Aapke dono bhej hue live links perfectly configuration mein set hain)
-            "master_revenue": "https://docs.google.com/spreadsheets/d/e/2PACX-1vTy9SCNnZz8oo3f66tiT4wHVtr2ybIk33cf9t7Agldvrotb6_16PQjo1notWaDhwslttXRVWtPnfxcw/pub?gid=2092560953&single=true&output=csv",
-            "master_booking": "https://docs.google.com/spreadsheets/d/e/2PACX-1vTy9SCNnZz8oo3f66tiT4wHVtr2ybIk33cf9t7Agldvrotb6_16PQjo1notWaDhwslttXRVWtPnfxcw/pub?output=csv"
+            // Master Links
+            "master_revenue": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=1335977131",
+            "master_booking": "https://docs.google.com/spreadsheets/d/1yHMeINZIiVzUZmDHkujPAdORTQjIe448Ex2AILKkwh0/export?format=csv&gid=2092560953"
         };
 
-        // Advanced CSV Parsing Engine (Handles quotes, formatting & commas perfectly)
         function parseCSV(text) {
             let lines = text.split(/\r?\n/).map(line => line.trim()).filter(line => line !== '');
             return lines.map(line => {
@@ -116,13 +107,12 @@
             });
         }
 
-        // Dropdown toggle system for Master Sheets
         function handleCategoryChange() {
             const category = document.getElementById('categorySelect').value;
             const monthSelect = document.getElementById('monthSelect');
             
             if (category === "revenue" || category === "booking") {
-                monthSelect.disabled = true; // Master report mein month lock ho jayega
+                monthSelect.disabled = true;
             } else {
                 monthSelect.disabled = false;
             }
@@ -153,16 +143,14 @@
             tableContainer.innerHTML = '';
             downloadBtn.disabled = true;
 
-            // Link validation check
-            if (!sheetURL || sheetURL.startsWith("YAHAN_")) {
-                statusMsg.style.display = 'block';
+            if (!sheetURL) {
                 statusMsg.style.color = '#d32f2f';
-                statusMsg.innerHTML = `⚠️ Data Unloaded: Is tab ke liye Google Sheet ka CSV link code mein nahi mila hai.<br><span style="font-size:13px; color:#555;">Kripya is tab (${key}) ka CSV link generate karke index.html mein paste karein.</span>`;
+                statusMsg.innerHTML = `⚠️ Data Unloaded: Is configuration ke liye link nahi mila.`;
                 return;
             }
 
             try {
-                // Fetching data with cache-busting timestamp to ensure real-time update
+                // Cache bypass logic taaki hamesha real-time update mile
                 const response = await fetch(sheetURL + '&t=' + new Date().getTime());
                 
                 if (!response.ok) throw new Error("Fetch failed");
@@ -185,7 +173,7 @@
                 console.error(error);
                 statusMsg.style.display = 'block';
                 statusMsg.style.color = '#d32f2f';
-                statusMsg.innerHTML = `⚠️ Live Connection Error: Google Sheet se data sampark nahi ho pa raha hai.<br><span style="font-size:13px; color:#555;">Kripya check karein ki kya Sheet sahi se 'Publish to Web' ki gayi hai?</span>`;
+                statusMsg.innerHTML = `⚠️ Live Connection Error: Google Sheet se data sampark nahi ho pa raha hai.<br><span style="font-size:13px; color:#555;">Kripya ek baar internet connection check karein.</span>`;
                 tableContainer.innerHTML = '';
                 downloadBtn.disabled = true;
             }
@@ -215,7 +203,6 @@
             container.innerHTML = html;
         }
 
-        // Excel-Compatible instant download engine with BOM support for Hindi/Special text
         function downloadCSV() {
             if (!currentRawCSVText) return;
             const BOM = "\uFEFF";
@@ -233,7 +220,6 @@
             }
         }
 
-        // Load default tab on launch
         window.onload = loadSelectedFile;
     </script>
 </body>
